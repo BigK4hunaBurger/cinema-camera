@@ -2,8 +2,8 @@
   "expo": {
     "name": "CinemaCamera",
     "slug": "cinema-camera",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "1.1.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -15,7 +15,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.cinemacam.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "CinemaCamera needs camera access to record video.",
+        "NSCameraUsageDescription": "CinemaCamera needs camera access to record video and take photos.",
         "NSMicrophoneUsageDescription": "CinemaCamera needs microphone access to record audio.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -36,7 +36,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withCinemaCameraProcessor"
+      "./plugins/withCinemaCameraProcessor",
+      [
+        "expo-notifications",
+        {
+          "iosDisplayInForeground": true
+        }
+      ]
     ],
     "newArchEnabled": false,
     "extra": {
