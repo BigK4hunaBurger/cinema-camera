@@ -13,20 +13,11 @@ import {
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
-import * as Notifications from 'expo-notifications';
 
 const { CinemaCameraProcessor } = NativeModules;
 const FONT = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 const BLACK = '#000000';
 const RED   = '#FF3B30';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
 
 const RATIOS = [
   { label: '2.39:1', value: 2.39 },
@@ -157,7 +148,6 @@ export default function App() {
   const barH    = Math.max(40, (SCREEN_H - cameraH) / 2);
   const booting = bootIdx < BOOT_LINES.length - 1;
 
-  useEffect(() => { Notifications.requestPermissionsAsync(); }, []);
   useEffect(() => {
     const id = setInterval(() => setBootIdx(i => i + 1), 260);
     return () => clearInterval(id);
@@ -178,15 +168,6 @@ export default function App() {
     if (!micPermission?.granted)    await requestMicPermission();
     if (!mediaPermission?.granted)  await requestMediaPermission();
   };
-
-  const notify = useCallback(async (body) => {
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: { title: 'CinemaCamera', body },
-        trigger: null,
-      });
-    } catch (_) {}
-  }, []);
 
   const showMsg = useCallback((msg) => {
     setSavedMsg(msg);
@@ -235,7 +216,6 @@ export default function App() {
           const asset = await MediaLibrary.createAssetAsync(processed);
           await MediaLibrary.createAlbumAsync('CinemaCamera', asset, false);
           showMsg('> CLIP SAVED TO ROLL');
-          notify('Clip saved to roll');
         } finally {
           setIsProcessing(false);
         }
@@ -273,7 +253,6 @@ export default function App() {
       const asset = await MediaLibrary.createAssetAsync(processed);
       await MediaLibrary.createAlbumAsync('CinemaCamera', asset, false);
       showMsg('> FRAME SAVED');
-      notify('Frame saved to roll');
     } catch (e) {
       console.error(e);
       setSavedMsg('');
