@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -131,6 +132,7 @@ export default function App() {
   const [isRecording,   setIsRecording]   = useState(false);
   const [isProcessing,  setIsProcessing]  = useState(false);
   const [isCapturing,   setIsCapturing]   = useState(false);
+  const [previewUri,    setPreviewUri]    = useState(null);
   const [elapsed,       setElapsed]       = useState(0);
   const [savedMsg,      setSavedMsg]      = useState('');
   const [blinkOn,       setBlinkOn]       = useState(true);
@@ -142,6 +144,19 @@ export default function App() {
   const currentFps   = FPS_OPTIONS[fpsIdx];
   const isPhoto      = mode === 'photo';
   const activeColor  = isPhoto ? film : theme;
+
+  // Semi-transparent color overlay to preview filter effect
+  const filterOverlay = isPhoto ? {
+    KODAK:    'rgba(255, 130, 0, 0.10)',   // warm golden
+    ILFORD:   'rgba(0, 0, 0, 0.08)',       // desaturated (+ grayscale filter below)
+    FUJI:     'rgba(0, 140, 170, 0.09)',   // cool cyan-green
+    POLAROID: 'rgba(255, 250, 220, 0.13)', // faded warm white
+  }[film.name] : null;
+
+  // Grayscale only for ILFORD
+  const liveFilter = (isPhoto && film.name === 'ILFORD')
+    ? [{ grayscale: 1 }, { contrast: 1.1 }]
+    : undefined;
 
   // Camera viewport: fill width, clamp height so bars stay visible
   const cameraH = Math.min(SCREEN_W / currentRatio.value, SCREEN_H - 80);
@@ -226,7 +241,7 @@ export default function App() {
     } finally {
       setIsRecording(false);
     }
-  }, [isRecording, currentRatio, currentFps, notify, showMsg]);
+  }, [isRecording, currentRatio, currentFps, showMsg]);
 
   const stopRecording = useCallback(async () => {
     if (!cameraRef.current || !isRecording) return;
@@ -250,16 +265,28 @@ export default function App() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 1, skipProcessing: false });
       setSavedMsg('> DEVELOPING...');
       const processed = await CinemaCameraProcessor.processPhoto(photo.uri, film.name);
-      const asset = await MediaLibrary.createAssetAsync(processed);
-      await MediaLibrary.createAlbumAsync('CinemaCamera', asset, false);
-      showMsg('> FRAME SAVED');
+      setSavedMsg('');
+      setPreviewUri(processed);
     } catch (e) {
       console.error(e);
       setSavedMsg('');
     } finally {
       setIsCapturing(false);
     }
-  }, [isCapturing, film, notify, showMsg]);
+  }, [isCapturing, film]);
+
+  const savePhoto = useCallback(async () => {
+    if (!previewUri) return;
+    try {
+      const asset = await MediaLibrary.createAssetAsync(previewUri);
+      await MediaLibrary.createAlbumAsync('CinemaCamera', asset, false);
+      showMsg('> FRAME SAVED');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPreviewUri(null);
+    }
+  }, [previewUri, showMsg]);
 
   // ── Boot screen ───────────────────────────────────────────────
   if (booting) {
@@ -305,6 +332,46 @@ export default function App() {
     );
   }
 
+  // ── Photo preview screen ─────────────────────────────────────
+  if (previewUri) {
+    return (
+      <View style={styles.root}>
+        <StatusBar hidden />
+        <Image
+          source={{ uri: previewUri }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="contain"
+        />
+        {/* Film info overlay */}
+        <View style={{ position: 'absolute', top: 40, left: 20 }}>
+          <Text style={[styles.label, { color: film.fg }]}>{film.tag}</Text>
+          <Text style={[styles.small, { color: film.dim }]}>ISO 400  35mm</Text>
+        </View>
+        {/* Buttons */}
+        <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0,
+                       flexDirection: 'row', justifyContent: 'center', gap: 24 }}>
+          <TouchableOpacity
+            onPress={() => setPreviewUri(null)}
+            style={[styles.recBtn, { borderColor: theme.dim }]}
+          >
+            <Text style={[styles.recText, { color: theme.dim }]}>[ ↩ RETAKE ]</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={savePhoto}
+            style={[styles.recBtn, { borderColor: film.fg }]}
+          >
+            <Text style={[styles.recText, { color: film.fg }]}>[ ✓ SAVE ]</Text>
+          </TouchableOpacity>
+        </View>
+        {savedMsg !== '' && (
+          <View style={{ position: 'absolute', bottom: 110, left: 0, right: 0, alignItems: 'center' }}>
+            <Text style={[styles.small, { color: film.fg }]}>{savedMsg}</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
   // ── Main UI ───────────────────────────────────────────────────
   return (
     <View style={styles.root}>
@@ -341,7 +408,7 @@ export default function App() {
       </View>
 
       {/* CAMERA VIEWPORT */}
-      <View style={{ width: SCREEN_W, height: cameraH, overflow: 'hidden' }}>
+      <View style={{ width: SCREEN_W, height: cameraH, overflow: 'hidden', filter: liveFilter }}>
         <CameraView
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
@@ -354,12 +421,12 @@ export default function App() {
 
         {showGrid && (
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={[styles.gridV, { left: SCREEN_W / 3,       borderColor: activeColor.dim + '60' }]} />
-            <View style={[styles.gridV, { left: (SCREEN_W * 2) / 3, borderColor: activeColor.dim + '60' }]} />
-            <View style={[styles.gridH, { top: cameraH / 3,         borderColor: activeColor.dim + '60' }]} />
-            <View style={[styles.gridH, { top: (cameraH * 2) / 3,   borderColor: activeColor.dim + '60' }]} />
-            <View style={[styles.gridH, { top: cameraH / 2 - 0.5, width: 20, alignSelf: 'center', borderColor: activeColor.fg + '80' }]} />
-            <View style={[styles.gridV, { left: SCREEN_W / 2 - 0.5, height: 20, top: cameraH / 2 - 10, borderColor: activeColor.fg + '80' }]} />
+            <View style={[styles.gridV, { left: SCREEN_W / 3,       borderColor: theme.dim + '60' }]} />
+            <View style={[styles.gridV, { left: (SCREEN_W * 2) / 3, borderColor: theme.dim + '60' }]} />
+            <View style={[styles.gridH, { top: cameraH / 3,         borderColor: theme.dim + '60' }]} />
+            <View style={[styles.gridH, { top: (cameraH * 2) / 3,   borderColor: theme.dim + '60' }]} />
+            <View style={[styles.gridH, { top: cameraH / 2 - 0.5, width: 20, alignSelf: 'center', borderColor: theme.fg + '80' }]} />
+            <View style={[styles.gridV, { left: SCREEN_W / 2 - 0.5, height: 20, top: cameraH / 2 - 10, borderColor: theme.fg + '80' }]} />
           </View>
         )}
 
@@ -373,6 +440,14 @@ export default function App() {
 
         {isRecording && blinkOn && (
           <View pointerEvents="none" style={[styles.recDot, { backgroundColor: RED }]} />
+        )}
+
+        {/* Filter color overlay (live preview) */}
+        {filterOverlay && (
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { backgroundColor: filterOverlay }]}
+          />
         )}
 
         {/* Shutter flash */}
@@ -389,7 +464,7 @@ export default function App() {
         <View style={[styles.row, { justifyContent: 'center', gap: 8 }]}>
           {['video', 'photo'].map((m) => {
             const isActive = mode === m;
-            const color = m === 'photo' && isActive ? film.fg : isActive ? theme.fg : theme.dim;
+            const color = isActive ? activeColor.fg : theme.dim;
             return (
               <TouchableOpacity
                 key={m}
@@ -434,12 +509,12 @@ export default function App() {
         <View style={styles.recRow}>
           {isPhoto ? (
             <TouchableOpacity
-              style={[styles.recBtn, { borderColor: film.fg }, isCapturing && { opacity: 0.4 }]}
+              style={[styles.recBtn, { borderColor: activeColor.fg }, isCapturing && { opacity: 0.4 }]}
               onPress={capturePhoto}
               disabled={isCapturing}
               activeOpacity={0.6}
             >
-              <Text style={[styles.recText, { color: film.fg }]}>
+              <Text style={[styles.recText, { color: activeColor.fg }]}>
                 {isCapturing ? '[ ◎ SHOOT ]' : '[ ◉ SHOOT ]'}
               </Text>
             </TouchableOpacity>
@@ -457,7 +532,7 @@ export default function App() {
           )}
         </View>
 
-        <Text style={[styles.small, { color: activeColor.dim, textAlign: 'center' }]}>
+        <Text style={[styles.small, { color: theme.dim, textAlign: 'center' }]}>
           {isPhoto
             ? 'PINCH:ZOOM  TAP:FOCUS  TAP:PRESET'
             : 'PINCH:ZOOM  TAP:FOCUS  TAP:SETTINGS'}
