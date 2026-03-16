@@ -1,29 +1,48 @@
 {
   "expo": {
-    "name": "cinema-camera",
+    "name": "CinemaCamera",
     "slug": "cinema-camera",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cinemacam.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CinemaCamera needs camera access to record video.",
+        "NSMicrophoneUsageDescription": "CinemaCamera needs microphone access to record audio.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_MEDIA_VIDEO",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withCinemaCameraProcessor"
+    ],
+    "newArchEnabled": false,
+    "extra": {
+      "eas": {
+        "projectId": "6b49a1ec-e00c-44f9-bf83-cc2e360c1c7e"
+      }
     }
   }
 }
